@@ -1,5 +1,9 @@
+import json
 import os
+import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from safe4all.config import COUNTRIES, country_settings
@@ -30,6 +34,32 @@ class ProjectTests(unittest.TestCase):
         # cryptic error from the `ee` library.
         with mock.patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "EE_PROJECT"):
+                initialise_earth_engine()
+
+    def test_earth_engine_uses_a_service_account_key_when_configured(self):
+        # Headless/workshop auth path: a service account key file (never
+        # committed to the repo) should be used instead of interactive
+        # ee.Authenticate() when EE_SERVICE_ACCOUNT_KEY is set.
+        fake_ee = mock.MagicMock()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            key_path = Path(tmp_dir) / "key.json"
+            key_path.write_text(json.dumps({"client_email": "bot@example.iam.gserviceaccount.com"}))
+            env = {"EE_PROJECT": "some-project", "EE_SERVICE_ACCOUNT_KEY": str(key_path)}
+            with mock.patch.dict(os.environ, env, clear=True), mock.patch.dict(sys.modules, {"ee": fake_ee}):
+                initialise_earth_engine()
+
+        fake_ee.ServiceAccountCredentials.assert_called_once_with(
+            "bot@example.iam.gserviceaccount.com", str(key_path)
+        )
+        fake_ee.Authenticate.assert_not_called()
+        fake_ee.Initialize.assert_called_once_with(
+            fake_ee.ServiceAccountCredentials.return_value, project="some-project"
+        )
+
+    def test_earth_engine_service_account_key_must_exist(self):
+        env = {"EE_PROJECT": "some-project", "EE_SERVICE_ACCOUNT_KEY": "/no/such/key.json"}
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.dict(sys.modules, {"ee": mock.MagicMock()}):
+            with self.assertRaises(FileNotFoundError):
                 initialise_earth_engine()
 
 

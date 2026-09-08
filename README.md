@@ -64,13 +64,30 @@ Jupyter/Anaconda use `.safe4all-cache/` inside the project folder.
 ## Google Earth Engine access
 
 Earth Engine now requires every request to be attached to a Google Cloud
-project. Set `EE_PROJECT` in Section 1 of the notebook to a project where the
-Earth Engine API is enabled (free to create at
-<https://console.cloud.google.com/>). The notebook will prompt you to
-authenticate on first use; a Google account with Earth Engine access is
-required to run the data-analysis cells. The project does not store
-credentials or API keys — TAHMO credentials are requested privately at
-runtime with `getpass` and kept only in the current session's memory.
+project. `EE_PROJECT` in Section 1 of the notebook is pre-set to the SAFE4ALL
+workshop project; point it at a different project (with the Earth Engine API
+enabled — free to create at <https://console.cloud.google.com/>) if you want
+to run this against your own instead.
+
+Two ways to authenticate:
+
+- **Interactive (default):** the notebook prompts you to sign in with
+  `ee.Authenticate()` on first use. Good for individual Google accounts.
+- **Service account (headless, recommended for the workshop):** set the
+  `EE_SERVICE_ACCOUNT_KEY` (or the standard `GOOGLE_APPLICATION_CREDENTIALS`)
+  environment variable to the local path of a service-account JSON key
+  *before* starting Jupyter/Colab, so every participant can run "Run all"
+  without an individual OAuth login.
+
+  **Never commit a key file to this repository.** Keep it outside the
+  project folder, or inside `.safe4all-cache/` (already git-ignored). If a
+  key is ever pasted into a chat, ticket, or shared document, treat it as
+  compromised and rotate it immediately in
+  [IAM & Admin -> Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts).
+
+The project does not store credentials or API keys in code — TAHMO
+credentials are requested privately at runtime with `getpass` and kept only
+in the current session's memory.
 
 ## Interpretation note
 
