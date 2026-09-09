@@ -19,7 +19,9 @@ def imerg_half_hourly(ee, start_date: str, end_date: str, region):
         ee.ImageCollection("NASA/GPM_L3/IMERG_V07")
         .filterDate(start_date, end_date)
         .filterBounds(region)
-        .select("precipitationCal")
+        # V07 renamed the calibrated rain-rate band from "precipitationCal"
+        # (V06) to "precipitation".
+        .select("precipitation")
         .map(lambda image: image.multiply(0.5).copyProperties(image, ["system:time_start"]))
     )
 
