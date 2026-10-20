@@ -8,7 +8,7 @@ import os
 import zipfile
 from pathlib import Path
 
-from .config import CLASS_COLORS, CLASS_LABELS
+from .config import BASEMAP_ATTRIBUTION, BASEMAP_URL, CLASS_COLORS, CLASS_LABELS
 from .model import assign_classes, rank_descending
 
 # Short shapefile field (<= 10 characters) -> descriptive CSV column.
@@ -93,7 +93,7 @@ def save_district_html(gdf, path: Path) -> Path:
                             legend=(i == 0), legend_kwds={"caption": "Risk class"},
                             tooltip=fields, tooltip_kwds={"aliases": aliases}, popup=fields,
                             style_kwds={"color": "#444444", "weight": 0.6, "fillOpacity": 0.75},
-                            tiles="CartoDB positron")
+                            tiles=BASEMAP_URL, attr=BASEMAP_ATTRIBUTION)
     folium.LayerControl(collapsed=False).add_to(fmap)
     fmap.save(str(path))
     return Path(path)

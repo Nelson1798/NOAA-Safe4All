@@ -14,6 +14,16 @@ def add_time_props(image):
     return image.set({"year": date.get("year"), "month": date.get("month")})
 
 
+def image_available(ee, image, region, name: str, scale: int = 1000) -> bool:
+    """True if Earth Engine can read pixels of ``image`` (catalogue assets can be corrupted or withdrawn)."""
+    try:
+        ee.Image(image).reduceRegion(ee.Reducer.first(), region.centroid(1000), scale).getInfo()
+        return True
+    except Exception as error:
+        print(f"  {name} unavailable in Earth Engine ({str(error)[:100]}); skipped.")
+        return False
+
+
 def month_filter(ee, months):
     """Filter images to a list of calendar months (works for seasons crossing 31 December)."""
     return ee.Filter.Or(*[ee.Filter.calendarRange(int(m), int(m), "month") for m in months])

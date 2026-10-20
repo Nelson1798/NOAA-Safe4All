@@ -59,6 +59,12 @@ DROUGHT_LAND_USE_SCORES = {
     "tree": 0.3, "moss": 0.3, "water-seasonal": 0.2, "snow": 0.0, "water-permanent": 0.0,
 }
 
+# Basemap for every map. OpenStreetMap's tile servers return "403 Access blocked"
+# and CARTO now requires an API key; Esri World Street Map needs no key.
+BASEMAP_NAME = "Esri World Street Map"
+BASEMAP_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+BASEMAP_ATTRIBUTION = "Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, USGS, NGA, EPA, USDA, NPS"
+
 CLASS_LABELS = ["Very Low", "Low", "Moderate", "High", "Very High"]
 CLASS_COLORS = ["1a9850", "91cf60", "ffffbf", "fc8d59", "d73027"]
 EQUAL_BREAKS = [0.2, 0.4, 0.6, 0.8]
