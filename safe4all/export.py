@@ -25,11 +25,41 @@ FIELD_DESCRIPTIONS = {
 }
 
 
+def polygon_parts(geometry):
+    """Return only the polygonal parts of a geometry as a MultiPolygon (None if there are none).
+
+    Some GAUL 2015 districts come back from Earth Engine as GeometryCollections
+    or with line slivers after simplification; a polygon shapefile rejects them.
+    """
+    from shapely.geometry import MultiPolygon, Polygon
+    from shapely.validation import make_valid
+
+    if geometry is None or geometry.is_empty:
+        return None
+    geometry = make_valid(geometry)
+    if isinstance(geometry, Polygon):
+        return MultiPolygon([geometry])
+    if isinstance(geometry, MultiPolygon):
+        return geometry
+    parts = []
+    for part in getattr(geometry, "geoms", []):
+        cleaned = polygon_parts(part)
+        if cleaned is not None:
+            parts.extend(cleaned.geoms)
+    return MultiPolygon(parts) if parts else None
+
+
 def finalise_district_table(gdf, method: str = "equal"):
     """Add High/Very High %, district classes and ranks; return (gdf, descriptive table)."""
     import pandas as pd
 
     gdf = gdf.copy()
+    gdf["geometry"] = gdf.geometry.apply(polygon_parts)
+    gdf = gdf.set_geometry("geometry")
+    missing = gdf.geometry.isna()
+    if missing.any():
+        print(f"{missing.sum()} district(s) without polygon geometry (kept in the CSV, left out of maps): "
+              f"{gdf.loc[missing, 'ADM2_NAME'].tolist()}")
     for column in ["pop_total", "pop_fl_hi", "pop_dr_hi", "fl_hi_frac", "dr_hi_frac"]:
         gdf[column] = gdf[column].fillna(0) if column in gdf else 0.0
     gdf["fl_hi_pct"] = 100 * gdf["fl_hi_frac"]
@@ -58,7 +88,7 @@ def save_shapefile(gdf, out_dir: Path, prefix: str) -> Path:
     shp_dir = Path(out_dir) / f"{prefix}_district_risk_shp"
     shp_dir.mkdir(parents=True, exist_ok=True)
     fields = [f for f in FIELD_DESCRIPTIONS if f != "ADM0_NAME"]
-    shp = gdf[fields + ["geometry"]].copy()
+    shp = gdf.loc[gdf.geometry.notna(), fields + ["geometry"]].copy()
     for column in ("fl_rank", "dr_rank", "mh_rank"):
         shp[column] = shp[column].astype(float)
     shp.to_file(shp_dir / f"{prefix}_district_risk.shp")
@@ -80,7 +110,7 @@ def save_district_html(gdf, path: Path) -> Path:
     aliases = ["Region", "District", "Population", "Flood risk index", "Flood risk class",
                "Pop. in high flood risk", "Drought risk index", "Drought risk class",
                "Pop. in high drought risk", "Multi-hazard index", "Multi-hazard class"]
-    data = gdf.copy()
+    data = gdf[gdf.geometry.notna()].copy()
     for column in ("fl_risk", "dr_risk", "mh_risk"):
         data[column] = data[column].round(3)
     for column in ("pop_total", "pop_fl_hi", "pop_dr_hi"):
@@ -142,17 +172,35 @@ def save_static_maps(ee, panels: list, districts, study_fc, study_area, gdf, out
                .blend(ee.Image().byte().paint(study_fc, 1, 2).visualize(palette=["000000"])))
 
     def thumbnail(class_image):
+        # A country-wide class map is computed in one synchronous request, which can
+        # exceed Earth Engine's time/memory limits; retry smaller and report EE's message.
         vis = class_image.visualize(min=1, max=5, palette=CLASS_COLORS).blend(outline)
-        url = vis.getThumbURL({"region": bounds, "dimensions": 1200, "format": "png", "crs": "EPSG:4326"})
-        return Image.open(io.BytesIO(requests.get(url, timeout=600).content))
+        error = ""
+        for dimensions in (1200, 800, 512):
+            try:
+                url = vis.getThumbURL({"region": bounds, "dimensions": dimensions, "format": "png", "crs": "EPSG:4326"})
+                response = requests.get(url, timeout=600)
+            except Exception as exc:
+                error = str(exc)
+                continue
+            if response.ok and response.headers.get("Content-Type", "").startswith("image"):
+                return Image.open(io.BytesIO(response.content))
+            error = response.text[:300]
+        raise RuntimeError(error or "no image returned")
 
     aspect = (extent[3] - extent[2]) / (extent[1] - extent[0])
     rows = math.ceil(len(panels) / 2)
     fig, axes = plt.subplots(rows, 2, figsize=(12, 6 * rows * aspect + 1.5), squeeze=False)
     for ax, (image, label) in zip(axes.ravel(), panels):
-        ax.imshow(thumbnail(image), extent=extent)
+        try:
+            ax.imshow(thumbnail(image), extent=extent)
+            ax.tick_params(labelsize=8)
+        except Exception as exc:
+            print(f"{label}: Earth Engine could not render the static map ({str(exc)[:200]}). "
+                  "Use the interactive map or the GeoTIFF export for this layer.")
+            ax.text(0.5, 0.5, "Not rendered\n(see GeoTIFF export)", ha="center", va="center", transform=ax.transAxes)
+            ax.set_axis_off()
         ax.set_title(label, fontweight="bold")
-        ax.tick_params(labelsize=8)
     for ax in axes.ravel()[len(panels):]:
         ax.set_axis_off()
     fig.legend(handles=handles, loc="lower center", ncol=5, frameon=False)

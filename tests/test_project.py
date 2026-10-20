@@ -1,4 +1,5 @@
 import ast
+import importlib.util
 import json
 import os
 import sys
@@ -121,6 +122,18 @@ class RiskWorkflowTests(unittest.TestCase):
     def test_shapefile_field_names_fit_the_dbf_limit(self):
         for field in FIELD_DESCRIPTIONS:
             self.assertLessEqual(len(field), 10, field)
+
+    @unittest.skipUnless(importlib.util.find_spec("shapely"), "shapely not installed")
+    def test_district_geometries_keep_only_polygons(self):
+        from shapely.geometry import GeometryCollection, LineString, Polygon
+
+        from safe4all.export import polygon_parts
+
+        square = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+        mixed = polygon_parts(GeometryCollection([square, LineString([(2, 2), (3, 3)])]))
+        self.assertEqual(mixed.geom_type, "MultiPolygon")
+        self.assertAlmostEqual(mixed.area, 1.0)
+        self.assertIsNone(polygon_parts(LineString([(0, 0), (1, 1)])))
 
     def test_notebook_follows_the_ten_step_workflow(self):
         notebook = json.loads((ROOT / "SAFE4ALL_Climate_Risk_Assessment_Workshop.ipynb").read_text(encoding="utf-8"))
