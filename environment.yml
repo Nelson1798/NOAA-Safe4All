@@ -11,6 +11,10 @@ dependencies:
   - pandas
   - numpy
   - matplotlib
+  - geopandas
+  - folium
+  - mapclassify
+  - pillow
   - requests
   - xarray
   - netcdf4

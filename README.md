@@ -2,10 +2,11 @@
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Nelson1798/NOAA-Safe4All/blob/main/SAFE4ALL_Climate_Risk_Assessment_Workshop.ipynb)
 
-Hands-on Jupyter notebook for assessing flood and drought risk in **Kenya**,
-**Zimbabwe**, and **Ghana**. The exercise uses Google Earth Engine to analyse
-CHIRPS/IMERG rainfall and administrative boundaries, TAHMO station
-observations for ground validation, and TAMSAT for drought context.
+Hands-on Jupyter notebook for **flood and drought risk mapping** in **Kenya**,
+**Zimbabwe**, and **Ghana** (default: Ghana, whole country). It follows a
+hazard x exposure x vulnerability workflow in Google Earth Engine and produces
+classified risk maps and district risk statistics, with TAHMO station
+observations for ground validation and TAMSAT for drought context.
 
 ## Run it — pick one
 
@@ -41,10 +42,34 @@ python -m unittest tests/test_project.py
 
 ## Workshop flow
 
-Run `SAFE4ALL_Climate_Risk_Assessment_Workshop.ipynb` from top to bottom. It is
-a single, progressive notebook: environment setup, configuration, data access
-and caching, TAHMO station QC, product validation, TAMSAT drought context,
-flood screening, and drought screening all use the same country and dates.
+Run `SAFE4ALL_Climate_Risk_Assessment_Workshop.ipynb` from top to bottom. It
+follows ten steps, and each one has its own module in the `safe4all` package:
+
+| Step | What it does | Module |
+|---|---|---|
+| 1-2 | Select country / region / district / river basin; load GAUL boundaries | `aoi.py` |
+| 3 | Climate: CHIRPS, ERA5-Land, TAHMO QC and validation (optional), TAMSAT (optional) | `drought.py`, `tahmo.py`, `qc.py`, `validation.py` |
+| 4 | Drought hazard: SPI-1/3/6, rainfall anomaly, NDVI anomaly, VCI, soil-moisture anomaly | `drought.py` |
+| 5 | Flood hazard: extreme rainfall, Sentinel-1 flood frequency, DEM, slope, HAND, flow accumulation, distance from river | `flood.py` |
+| 6 | Exposure: WorldPop, cropland, settlements, infrastructure | `exposure.py` |
+| 7 | Vulnerability: socioeconomic indicators, land use, agricultural dependence | `vulnerability.py` |
+| 8 | Risk = Hazard x Exposure x Vulnerability (flood, drought, multi-hazard) | `model.py` |
+| 9 | Classify: Very Low, Low, Moderate, High, Very High | `model.py` |
+| 10 | Export: GeoTIFF, CSV, Shapefile, interactive HTML maps, district statistics, PNG figures | `export.py` |
+
+Study area, periods, weights, and classification method are set in Section 1
+of the notebook. Per-country flood/dry/rainy-season months, default weights,
+and land-use susceptibility scores are in `safe4all/config.py`.
+
+## Outputs
+
+- **Google Drive** (`SAFE4ALL_Flood_Drought_Risk`): GeoTIFFs of hazard,
+  exposure, vulnerability, risk index and risk class for flood, drought and
+  multi-hazard, plus the district statistics as CSV and Shapefile.
+- **Workshop cache** (`outputs/<study area>/`): district risk statistics CSV,
+  zipped shapefile, interactive district map (self-contained HTML), interactive
+  raster map (HTML), area and population per risk class, district ranking
+  chart and static risk maps (PNG), and one zip of everything.
 
 ## Data strategy
 
@@ -91,7 +116,8 @@ in the current session's memory.
 
 ## Interpretation note
 
-The flood and drought maps are **screening products**, not operational
-forecasts or disaster warnings. They identify relative climate hazard from
-rainfall indicators and should be combined with local exposure, vulnerability,
-river, topography, and impact data before making decisions.
+The flood and drought maps are **screening-level risk products**, not
+operational forecasts or disaster warnings. Indices are relative to the
+selected study area. Calibrate weights and thresholds with local experts and
+validate the classes against observed flood extents, disaster records, and
+drought impacts before using them for decisions.
